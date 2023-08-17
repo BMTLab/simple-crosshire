@@ -1,0 +1,26 @@
+# Handle line endings automatically for files detected as text
+# and leave all files detected as binary untouched.
+* text=auto
+
+# Force the following filetypes to have unix line endings, so Windows does not break them
+*.py text eol=lf
+
+# Ignore directories created by virtualenv
+bin/ ignore
+include/ ignore
+lib/ ignore
+lib64/ ignore
+
+# Ignore log files and databases
+*.log binary
+*.sqlite binary
+*.db binary
+
+# Do not diff some auto-generated files
+*.pyc binary
+*.pyo binary
+*.egg binary
+*.jar binary
+*.zip binary
+*.tar.gz binary
+*.tar.bz2 binary
