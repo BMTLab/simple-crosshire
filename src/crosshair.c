@@ -101,6 +101,7 @@ static int usage_error(const char *problem, const char *argument)
 {
     complain(problem, argument);
     print_usage(STDERR_FD);
+
     return EXIT_USAGE;
 }
 
@@ -109,6 +110,7 @@ static const option_spec *find_short_option(char letter)
     for (size_t index = 0; index < OPTION_COUNT; index++)
         if (option_specs[index].letter == letter)
             return &option_specs[index];
+
     return nullptr;
 }
 
@@ -119,6 +121,7 @@ static const option_spec *find_long_option(const char *name, size_t length)
         if (text_length(candidate) == length && same_bytes(candidate, name, length))
             return &option_specs[index];
     }
+
     return nullptr;
 }
 
@@ -130,33 +133,41 @@ static int apply_option(options *opts, char letter, const char *value)
     switch (letter) {
     case 'f':
         opts->foreground = true;
+
         return CONTINUE;
 
     case 's':
         if (!parse_decimal(value, 1, MAX_SIZE, &number)) {
             complain("size must be 1 to " TEXT(MAX_SIZE) ": ", value);
+
             return EXIT_USAGE;
         }
         opts->size = (uint16_t)number;
+
         return CONTINUE;
 
     case 't':
         if (!parse_decimal(value, 1, MAX_SIZE, &number)) {
             complain("thickness must be 1 to " TEXT(MAX_SIZE) ": ", value);
+
             return EXIT_USAGE;
         }
         opts->thickness = (uint16_t)number;
+
         return CONTINUE;
 
     case 'c':
         if (!parse_rgb(value, &opts->rgb)) {
             complain("colour must be RRGGBB: ", value);
+
             return EXIT_USAGE;
         }
+
         return CONTINUE;
 
     default: /* 'h' */
         print_usage(STDOUT_FD);
+
         return EXIT_SUCCESS;
     }
 }
@@ -170,10 +181,12 @@ static int parse_long_option(int argc, char **argv, int *index, options *opts)
     size_t name_length = equals != nullptr ? (size_t)(equals - name) : text_length(name);
 
     const option_spec *spec = find_long_option(name, name_length);
+
     if (spec == nullptr)
         return usage_error("unknown option ", argument);
 
     const char *value = nullptr;
+
     if (spec->takes_value) {
         if (equals != nullptr)
             value = equals + 1;
@@ -211,8 +224,10 @@ static int parse_short_options(int argc, char **argv, int *index, options *opts)
             value = argv[++*index];
         if (value == nullptr)
             return usage_error("a value must follow ", option);
+
         return apply_option(opts, spec->letter, value);
     }
+
     return CONTINUE;
 }
 
@@ -252,8 +267,10 @@ static int parse_options(int argc, char **argv, options *opts)
         text_add_number(&numbers, opts->size);
 
         complain("thickness ", numbers.data);
+
         return EXIT_USAGE;
     }
+
     return CONTINUE;
 }
 
@@ -278,11 +295,13 @@ static void pid_file_path(text_buffer *path, char **environment)
 static long read_small_file(const char *path, char *buffer, size_t capacity)
 {
     long fd = sys_open(path, O_RDONLY | O_CLOEXEC, 0);
+
     if (fd < 0)
         return fd;
 
     long length = sys_read((int)fd, buffer, capacity);
     sys_close((int)fd);
+
     return length;
 }
 
@@ -291,14 +310,18 @@ static long recorded_pid(const char *path)
 {
     char content[24];
     long length = read_small_file(path, content, sizeof content - 1);
+
     if (length <= 0)
         return 0;
+
     content[length] = '\0';
 
     const char *cursor = content;
     uint64_t pid = 0;
+
     if (!take_decimal(&cursor, INT32_MAX, &pid))
         return 0;
+
     return (long)pid;
 }
 
@@ -306,6 +329,7 @@ static long recorded_pid(const char *path)
 static long running_pid(const char *path)
 {
     long pid = recorded_pid(path);
+
     if (pid == 0)
         return 0;
 
@@ -320,6 +344,7 @@ static long running_pid(const char *path)
     long length = read_small_file(comm_path.data, name, sizeof name);
 
     bool is_crosshair = length == sizeof PROGRAM && same_bytes(name, PROGRAM "\n", sizeof PROGRAM);
+
     return is_crosshair ? pid : 0;
 }
 
@@ -327,10 +352,12 @@ static void write_pid_file(const char *path)
 {
     char content_data[24];
     text_buffer content = text_on(content_data, sizeof content_data);
+
     text_add_number(&content, (uint64_t)sys_getpid());
     text_add(&content, "\n");
 
     long fd = sys_open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0666);
+
     if (fd < 0)
         return;
 
@@ -343,14 +370,17 @@ static int stop_crosshair(long pid)
 {
     char pid_data[24];
     text_buffer pid_text = text_on(pid_data, sizeof pid_data);
+
     text_add_number(&pid_text, (uint64_t)pid);
 
     if (sys_kill((int)pid, SIGTERM) != 0) {
         complain("cannot stop pid ", pid_text.data);
+
         return EXIT_FAILURE;
     }
 
     tell("stopped (pid ", pid_text.data, ")");
+
     return EXIT_SUCCESS;
 }
 
@@ -365,6 +395,7 @@ static long receive_stop_signals(void)
     uint64_t signals = signal_bit(SIGTERM) | signal_bit(SIGINT) | signal_bit(SIGHUP);
 
     sys_block_signals(&signals);
+
     return sys_signalfd(&signals, SFD_CLOEXEC);
 }
 
@@ -379,6 +410,7 @@ static bool follow_parent(void)
 
     if (sys_prctl(PR_SET_PDEATHSIG, SIGTERM) != 0)
         complain("cannot follow the parent process");
+
     return sys_getppid() == parent;
 }
 
@@ -386,8 +418,10 @@ static bool follow_parent(void)
 static void detach(void)
 {
     long child = sys_fork();
+
     if (child < 0) {
         complain("cannot fork");
+
         sys_exit(EXIT_FAILURE);
     }
 
@@ -397,11 +431,13 @@ static void detach(void)
         text_add_number(&pid_text, (uint64_t)child);
 
         tell("started (pid ", pid_text.data, ")");
+
         sys_exit(EXIT_SUCCESS);
     }
 
     sys_setsid();
     long null = sys_open("/dev/null", O_RDWR, 0);
+
     if (null >= 0) {
         sys_dup2((int)null, STDIN_FD);
         sys_dup2((int)null, STDOUT_FD);
@@ -443,6 +479,7 @@ static uint32_t channel_bits(uint32_t value, uint32_t mask)
 
     uint32_t shift = (uint32_t)__builtin_ctz(mask);
     uint32_t maximum = mask >> shift; /* 255 for the usual 8 bits */
+
     return (value * maximum / 255) << shift;
 }
 
@@ -456,6 +493,7 @@ static uint32_t true_colour_pixel(const x_screen *screen, uint32_t rgb)
 static void report_x_error(const x_message *message)
 {
     x_error error;
+
     __builtin_memcpy(&error, message, sizeof error);
 
     char details_data[64];
@@ -509,6 +547,7 @@ static bool overlay_await(overlay *self, uint32_t sequence, x_message *head, uin
     for (;;) {
         if (!x_next_message(&self->x, head, size)) {
             complain("the X server closed the connection");
+
             return false;
         }
 
@@ -517,6 +556,7 @@ static bool overlay_await(overlay *self, uint32_t sequence, x_message *head, uin
             return true;
         if (head->type == X_ERROR) {
             report_x_error(head);
+
             return false;
         }
 
@@ -531,13 +571,17 @@ static bool overlay_await_extension(overlay *self, uint32_t sequence,
 {
     x_message head;
     uint32_t size = 0;
+
     if (!overlay_await(self, sequence, &head, &size))
         return false;
 
     __builtin_memcpy(reply, &head, sizeof *reply);
+
     if (head.type != X_REPLY)
         reply->present = false;
+
     input_consume(&self->x.input, size);
+
     return true;
 }
 
@@ -565,10 +609,12 @@ static void overlay_place(overlay *self, int32_t centre_x, int32_t centre_y, boo
         self->left = left;
         self->top = top;
     }
+
     if (raise) {
         request.value_mask |= X_CONFIG_STACK_MODE;
         request.values[count++] = X_STACK_ABOVE;
     }
+
     if (count == 0)
         return;
 
@@ -585,6 +631,7 @@ static bool primary_monitor_centre(const uint8_t *reply, uint32_t size, int32_t 
                                    int32_t *centre_y)
 {
     x_randr_get_monitors_reply header;
+
     __builtin_memcpy(&header, reply, sizeof header);
 
     uint32_t offset = sizeof header;
@@ -605,6 +652,7 @@ static bool primary_monitor_centre(const uint8_t *reply, uint32_t size, int32_t 
         }
         offset += sizeof monitor + 4U * monitor.output_count;
     }
+
     return found;
 }
 
@@ -619,6 +667,7 @@ static void overlay_centre(overlay *self, const uint8_t *monitors, uint32_t size
 
     if (monitors != nullptr)
         primary_monitor_centre(monitors, size, &centre_x, &centre_y);
+
     overlay_place(self, centre_x, centre_y, raise);
 }
 
@@ -629,6 +678,7 @@ static uint32_t overlay_query_monitors(overlay *self)
         .window = self->root,
         .get_active = true,
     };
+
     return x_send(&self->x, &request, sizeof request);
 }
 
@@ -636,6 +686,7 @@ static uint32_t overlay_query_monitors(overlay *self)
 static void overlay_create_window(overlay *self, uint32_t pixel)
 {
     uint16_t size = self->size;
+
     self->left = (int16_t)(self->root_width / 2 - size / 2);
     self->top = (int16_t)(self->root_height / 2 - size / 2);
 
@@ -705,6 +756,7 @@ static void overlay_shape(overlay *self, uint16_t thickness)
             {0, offset, size, thickness}, /* the horizontal bar */
         },
     };
+
     x_send(&self->x, &bars, sizeof bars);
 
     /* No rectangles at all: the input region is empty, so the pointer reaches the windows below. */
@@ -725,6 +777,7 @@ static uint32_t overlay_watch_monitors(overlay *self, uint32_t *version_request)
         .major_version = 1,
         .minor_version = 5,
     };
+
     *version_request = x_send(&self->x, &version, sizeof version);
 
     x_randr_select_input_request changes = {
@@ -751,14 +804,17 @@ static uint32_t overlay_watch_monitors(overlay *self, uint32_t *version_request)
 static bool overlay_open(overlay *self, const options *opts, char **environment)
 {
     x_connection *x = &self->x;
+
     self->size = opts->size;
 
     const char *display = environment_value(environment, "DISPLAY");
     uint32_t display_number = 0;
     uint32_t screen_number = 0;
+
     if (!x_parse_display(display, &display_number, &screen_number)) {
         complain("DISPLAY must name a local X display such as :0, not \"",
                  display != nullptr ? display : "", "\"");
+
         return false;
     }
 
@@ -768,6 +824,7 @@ static bool overlay_open(overlay *self, const options *opts, char **environment)
 
     if (!x_connect(x, display_number)) {
         complain("cannot connect to the X display ", display);
+
         return false;
     }
 
@@ -775,16 +832,21 @@ static bool overlay_open(overlay *self, const options *opts, char **environment)
     x_queue_setup(x, cookie, cookie_length);
     uint32_t shape_query = x_query_extension(x, "SHAPE");
     uint32_t randr_query = x_query_extension(x, "RANDR");
+
     if (!x_flush(x)) {
         complain("cannot write to the X server");
+
         return false;
     }
 
     x_screen screen;
+
     if (!x_read_setup(x, screen_number, &screen))
         return false;
+
     if (screen.visual_class != X_TRUE_COLOR) {
         complain("the X screen's visual is not TrueColor");
+
         return false;
     }
 
@@ -798,11 +860,14 @@ static bool overlay_open(overlay *self, const options *opts, char **environment)
 
     x_query_extension_reply shape;
     x_query_extension_reply randr;
+
     if (!overlay_await_extension(self, shape_query, &shape)
         || !overlay_await_extension(self, randr_query, &randr))
         return false;
+
     if (!shape.present) {
         complain("the X server has no SHAPE extension");
+
         return false;
     }
 
@@ -811,13 +876,16 @@ static bool overlay_open(overlay *self, const options *opts, char **environment)
 
     uint32_t version_request = 0;
     uint32_t monitors_request = 0;
+
     if (randr.present) {
         self->randr_opcode = randr.major_opcode;
         self->randr_first_event = randr.first_event;
         monitors_request = overlay_watch_monitors(self, &version_request);
     }
+
     if (!x_flush(x)) {
         complain("cannot write to the X server");
+
         return false;
     }
 
@@ -847,8 +915,10 @@ static bool overlay_open(overlay *self, const options *opts, char **environment)
 
     if (!x_flush(x)) {
         complain("cannot write to the X server");
+
         return false;
     }
+
     return true;
 }
 
@@ -864,6 +934,7 @@ static void overlay_handle(overlay *self, const x_message *head, const uint8_t *
             self->monitors_request = 0;
             overlay_centre(self, message, size, false);
         }
+
         return;
     }
 
@@ -874,6 +945,7 @@ static void overlay_handle(overlay *self, const x_message *head, const uint8_t *
             self->has_monitors = false;
             overlay_centre(self, nullptr, 0, false);
         }
+
         return;
     }
 
@@ -884,6 +956,7 @@ static void overlay_handle(overlay *self, const x_message *head, const uint8_t *
 static bool overlay_drain(overlay *self)
 {
     input_buffer *input = &self->x.input;
+
     if (!input_read_some(input))
         return false;
 
@@ -896,6 +969,7 @@ static bool overlay_drain(overlay *self)
         overlay_handle(self, &head, input_peek(input), size);
         input_consume(input, size);
     }
+
     return true;
 }
 
@@ -934,6 +1008,7 @@ static int overlay_run(overlay *self, int signal_fd)
             continue;
         if (ready < 0) {
             complain("poll failed");
+
             return EXIT_FAILURE;
         }
 
@@ -952,6 +1027,7 @@ int main(int argc, char **argv, char **environment)
 {
     options opts;
     int status = parse_options(argc, argv, &opts);
+
     if (status != CONTINUE)
         return status;
 
@@ -968,19 +1044,24 @@ int main(int argc, char **argv, char **environment)
     }
 
     long signal_fd = receive_stop_signals();
+
     if (signal_fd < 0) {
         complain("cannot receive signals");
+
         return EXIT_FAILURE;
     }
+
     if (opts.foreground && !follow_parent())
         return EXIT_SUCCESS;
 
     overlay self = {};
+
     if (!overlay_open(&self, &opts, environment))
         return EXIT_FAILURE;
 
     if (!opts.foreground)
         detach();
+
     if (pid_file != nullptr)
         write_pid_file(pid_file);
 
@@ -989,5 +1070,6 @@ int main(int argc, char **argv, char **environment)
     /* The file is ours to remove while it still names this process. */
     if (pid_file != nullptr && recorded_pid(pid_file) == sys_getpid())
         sys_unlink(pid_file);
+
     return status;
 }

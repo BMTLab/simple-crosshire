@@ -42,6 +42,7 @@ function __train_wait_mapped() {
   local -r pid_file="$2"
 
   local -i attempt
+
   for ((attempt = 0; attempt < 2500; attempt++)); do
     if [[ "$(cat "${pid_file}" 2>/dev/null)" == "${pid}" ]]; then
       return 0
@@ -50,6 +51,7 @@ function __train_wait_mapped() {
   done
 
   printf 'train: pid %s mapped no window within 5 s\n' "${pid}" >&2
+
   return 1
 }
 
@@ -70,7 +72,9 @@ function __train_show_once() {
   rm -f "${pid_file}"
   "${binary}" -f "$@" &
   local -r pid="$!"
+
   __train_wait_mapped "${pid}" "${pid_file}"
+
   kill -TERM "${pid}"
   wait "${pid}"
 }
@@ -89,10 +93,12 @@ function train() {
 
   if [[ -z "${XDG_RUNTIME_DIR:-}" ]]; then
     printf 'train: XDG_RUNTIME_DIR is not set\n' >&2
+
     return 1
   fi
 
   local -i round
+
   for ((round = 0; round < rounds; round++)); do
     __train_show_once "${binary}" "${pid_file}"
     __train_show_once "${binary}" "${pid_file}" --size 15 --thickness 5 --color '#00ff00'
@@ -102,10 +108,12 @@ function train() {
   rm -f "${pid_file}"
   "${binary}" >/dev/null
   local -i attempt
+
   for ((attempt = 0; attempt < 2500; attempt++)); do
     [[ -s "${pid_file}" ]] && break
     sleep 0.002
   done
+
   "${binary}" >/dev/null
 
   # Help and refused options, the cold paths.

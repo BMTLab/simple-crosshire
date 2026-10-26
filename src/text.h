@@ -19,8 +19,10 @@
 static inline size_t text_length(const char *text)
 {
     size_t length = 0;
+
     while (text[length] != '\0')
         length++;
+
     return length;
 }
 
@@ -37,6 +39,7 @@ static inline bool same_bytes(const void *first, const void *second, size_t leng
     for (size_t index = 0; index < length; index++)
         if (left[index] != right[index])
             return false;
+
     return true;
 }
 
@@ -46,6 +49,7 @@ static inline const char *find_byte(const char *text, char byte)
     for (; *text != '\0'; text++)
         if (*text == byte)
             return text;
+
     return nullptr;
 }
 
@@ -57,6 +61,7 @@ static inline const char *environment_value(char **environment, const char *name
     for (char **entry = environment; *entry != nullptr; entry++)
         if (same_bytes(*entry, name, length) && (*entry)[length] == '=')
             return *entry + length + 1;
+
     return nullptr;
 }
 
@@ -73,12 +78,14 @@ typedef struct {
 static inline text_buffer text_on(char *data, size_t capacity)
 {
     data[0] = '\0';
+
     return (text_buffer){.data = data, .capacity = capacity};
 }
 
 static inline void text_append(text_buffer *text, const char *part, size_t length)
 {
     size_t room = text->capacity - 1 - text->length;
+
     if (length > room) {
         length = room;
         text->truncated = true;
@@ -129,11 +136,13 @@ static inline bool take_decimal(const char **cursor, uint64_t maximum, uint64_t 
         if (number > maximum)
             return false;
     }
+
     if (digit == *cursor)
         return false;
 
     *cursor = digit;
     *value = number;
+
     return true;
 }
 
@@ -151,8 +160,10 @@ static inline int hex_digit(char digit)
         return digit - '0';
 
     digit |= 0x20; /* 'A' to 'F' become 'a' to 'f' */
+
     if (digit >= 'a' && digit <= 'f')
         return digit - 'a' + 10;
+
     return -1;
 }
 
@@ -163,16 +174,19 @@ static inline bool parse_rgb(const char *text, uint32_t *rgb)
         text++;
 
     uint32_t value = 0;
+
     for (int index = 0; index < 6; index++) {
         int digit = hex_digit(text[index]);
         if (digit < 0)
             return false;
         value = value << 4 | (uint32_t)digit;
     }
+
     if (text[6] != '\0')
         return false;
 
     *rgb = value;
+
     return true;
 }
 
@@ -186,12 +200,15 @@ static void say(int fd, const char *first, ...)
 {
     char line_data[512];
     text_buffer line = text_on(line_data, sizeof line_data - 1); /* room kept for the newline */
+
     text_add(&line, PROGRAM ": ");
 
     va_list parts;
     va_start(parts, first);
+
     for (const char *part = first; part != nullptr; part = va_arg(parts, const char *))
         text_add(&line, part);
+
     va_end(parts);
 
     line.data[line.length++] = '\n';

@@ -424,6 +424,7 @@ static inline const uint8_t *input_peek(const input_buffer *input)
 static inline void input_consume(input_buffer *input, uint32_t length)
 {
     input->start += length;
+
     if (input->start == input->end)
         input->start = input->end = 0;
 }
@@ -433,6 +434,7 @@ static inline void input_compact(input_buffer *input)
 {
     if (input->start == 0)
         return;
+
     copy_bytes(input->data, input->data + input->start, input->end - input->start);
     input->end -= input->start;
     input->start = 0;
@@ -445,13 +447,16 @@ static inline bool input_read_some(input_buffer *input)
         input_compact(input);
 
     long count;
+
     do
         count = sys_read(input->fd, input->data + input->end, sizeof input->data - input->end);
     while (count == -EINTR);
 
     if (count <= 0)
         return false;
+
     input->end += (uint32_t)count;
+
     return true;
 }
 
@@ -460,12 +465,14 @@ static inline bool input_fill(input_buffer *input, uint32_t need)
 {
     if (need > sizeof input->data)
         return false;
+
     if (input->start + need > sizeof input->data)
         input_compact(input);
 
     while (input->end - input->start < need)
         if (!input_read_some(input))
             return false;
+
     return true;
 }
 
@@ -477,6 +484,7 @@ static inline bool input_take(input_buffer *input, void *destination, uint32_t s
 
     __builtin_memcpy(destination, input_peek(input), size);
     input_consume(input, size);
+
     return true;
 }
 
@@ -491,6 +499,7 @@ static inline bool input_skip(input_buffer *input, uint32_t length)
         input_consume(input, chunk);
         length -= chunk;
     }
+
     return true;
 }
 
@@ -526,6 +535,7 @@ static inline bool x_flush(x_connection *connection)
     }
 
     connection->output_length = 0;
+
     return true;
 }
 
@@ -533,6 +543,7 @@ static inline bool x_flush(x_connection *connection)
 static inline void x_queue_bytes(x_connection *connection, const void *bytes, uint32_t length)
 {
     uint32_t padded = x_padded(length);
+
     if (connection->output_length + padded > sizeof connection->output)
         x_flush(connection);
 
@@ -546,6 +557,7 @@ static inline void x_queue_bytes(x_connection *connection, const void *bytes, ui
 static inline uint32_t x_send(x_connection *connection, const void *request, uint32_t size)
 {
     x_queue_bytes(connection, request, size);
+
     return ++connection->sequence;
 }
 
@@ -557,16 +569,20 @@ static inline uint32_t x_send(x_connection *connection, const void *request, uin
 static inline bool x_next_message(x_connection *connection, x_message *head, uint32_t *size)
 {
     input_buffer *input = &connection->input;
+
     if (!input_fill(input, sizeof *head))
         return false;
+
     __builtin_memcpy(head, input_peek(input), sizeof *head);
 
     uint8_t type = head->type & ~X_SENT_EVENT;
     uint32_t extra_units = type == X_REPLY || type == X_GENERIC_EVENT ? head->length : 0;
+
     if (extra_units > (sizeof input->data - sizeof *head) / 4)
         return false; /* longer than any reply crosshair asks for */
 
     *size = sizeof *head + 4 * extra_units;
+
     return input_fill(input, *size);
 }
 
@@ -582,26 +598,32 @@ static inline bool x_parse_display(const char *display, uint32_t *number, uint32
         return false;
 
     const char *colon = find_byte(display, ':');
+
     if (colon == nullptr)
         return false;
 
     size_t host_length = (size_t)(colon - display);
+
     if (host_length != 0 && !(host_length == 4 && same_bytes(display, "unix", 4)))
         return false;
 
     const char *cursor = colon + 1;
     uint64_t value = 0;
+
     if (!take_decimal(&cursor, 65535, &value))
         return false;
+
     *number = (uint32_t)value;
 
     *screen = 0;
+
     if (*cursor == '.') {
         cursor++;
         if (!take_decimal(&cursor, 255, &value))
             return false;
         *screen = (uint32_t)value;
     }
+
     return *cursor == '\0';
 }
 
@@ -609,14 +631,17 @@ static inline bool x_parse_display(const char *display, uint32_t *number, uint32
 static inline long x_connect_socket(const struct sockaddr_un *address, unsigned length)
 {
     long fd = sys_socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+
     if (fd < 0)
         return fd;
 
     long status = sys_connect((int)fd, address, length);
+
     if (status == 0)
         return fd;
 
     sys_close((int)fd);
+
     return status;
 }
 
@@ -641,6 +666,7 @@ static inline bool x_connect(x_connection *connection, uint32_t number)
         copy_bytes(address.sun_path, &address.sun_path[1], path.length + 1);
         fd = x_connect_socket(&address, path_offset + (unsigned)path.length + 1);
     }
+
     if (fd < 0)
         return false;
 
@@ -649,6 +675,7 @@ static inline bool x_connect(x_connection *connection, uint32_t number)
     connection->output_length = 0;
     connection->input.fd = (int)fd;
     connection->input.start = connection->input.end = 0;
+
     return true;
 }
 
@@ -670,10 +697,12 @@ typedef struct {
 static inline bool xauth_read_number(input_buffer *input, uint16_t *value)
 {
     uint8_t bytes[2];
+
     if (!input_take(input, bytes, sizeof bytes))
         return false;
 
     *value = (uint16_t)(bytes[0] << 8 | bytes[1]);
+
     return true;
 }
 
@@ -683,8 +712,10 @@ static inline bool xauth_read_field(input_buffer *input, xauth_field *field)
         return false;
 
     field->fits = field->length <= sizeof field->bytes;
+
     if (!field->fits)
         return input_skip(input, field->length);
+
     return input_take(input, field->bytes, field->length);
 }
 
@@ -708,6 +739,7 @@ static inline size_t x_find_cookie(input_buffer *input, char **environment, uint
     text_buffer path = text_on(path_data, sizeof path_data);
 
     const char *file = environment_value(environment, "XAUTHORITY");
+
     if (file == nullptr || *file == '\0') {
         const char *home = environment_value(environment, "HOME");
         if (home == nullptr)
@@ -720,8 +752,10 @@ static inline size_t x_find_cookie(input_buffer *input, char **environment, uint
     }
 
     long fd = sys_open(file, O_RDONLY | O_CLOEXEC, 0);
+
     if (fd < 0)
         return 0;
+
     input->fd = (int)fd;
     input->start = input->end = 0;
 
@@ -764,6 +798,7 @@ static inline size_t x_find_cookie(input_buffer *input, char **environment, uint
 
     sys_close((int)fd);
     input->start = input->end = 0;
+
     return cookie_length;
 }
 
@@ -782,6 +817,7 @@ static inline void x_queue_setup(x_connection *connection, const uint8_t *cookie
     };
 
     x_queue_bytes(connection, &request, sizeof request);
+
     if (with_cookie) {
         x_queue_bytes(connection, X_COOKIE_NAME, sizeof X_COOKIE_NAME - 1);
         x_queue_bytes(connection, cookie, (uint32_t)cookie_length);
@@ -802,8 +838,10 @@ typedef struct {
 static inline void reader_take(x_message_reader *reader, void *destination, uint32_t size)
 {
     bool available = reader->complete && size <= reader->remaining;
+
     if (available && input_take(reader->input, destination, size)) {
         reader->remaining -= size;
+
         return;
     }
 
@@ -815,8 +853,10 @@ static inline void reader_skip(x_message_reader *reader, uint32_t size)
 {
     if (reader->complete && size <= reader->remaining && input_skip(reader->input, size)) {
         reader->remaining -= size;
+
         return;
     }
+
     reader->complete = false;
 }
 
@@ -830,10 +870,13 @@ static inline void reader_skip(x_message_reader *reader, uint32_t size)
 static inline bool x_read_setup(x_connection *connection, uint32_t screen_number, x_screen *screen)
 {
     x_setup_reply_header header;
+
     if (!input_take(&connection->input, &header, sizeof header)) {
         complain("the X server closed the connection");
+
         return false;
     }
+
     x_message_reader reader = {&connection->input, 4U * header.length, true};
 
     /* A refusal carries the reason: its length is in the header when the server failed us. */
@@ -846,6 +889,7 @@ static inline bool x_read_setup(x_connection *connection, uint32_t screen_number
         reader_take(&reader, reason, length);
         reason[length] = '\0';
         complain("the X server refused the connection: ", reason);
+
         return false;
     }
 
@@ -855,6 +899,7 @@ static inline bool x_read_setup(x_connection *connection, uint32_t screen_number
     reader_skip(&reader, 8U * success.format_count);
 
     bool found = false;
+
     for (uint32_t screen_index = 0; screen_index < success.screen_count; screen_index++) {
         x_setup_screen root;
         reader_take(&reader, &root, sizeof root);
@@ -884,20 +929,25 @@ static inline bool x_read_setup(x_connection *connection, uint32_t screen_number
             }
         }
     }
+
     reader_skip(&reader, reader.remaining); /* whatever a newer server appends */
 
     if (!reader.complete) {
         complain("the X server sent a broken connection setup");
+
         return false;
     }
+
     if (!found) {
         complain("the X display has no such screen");
+
         return false;
     }
 
     /* Ids are the base with bits of the mask; the lowest of those bits gives the first id. */
     uint32_t mask = success.resource_id_mask;
     screen->first_id = success.resource_id_base | (mask & -mask);
+
     return true;
 }
 
@@ -909,6 +959,8 @@ static inline uint32_t x_query_extension(x_connection *connection, const char *n
         .header = X_HEADER(X_QUERY_EXTENSION, 0, x_query_extension_request),
         .name_length = (uint16_t)text_length(name),
     };
+
     copy_bytes(request.name, name, request.name_length);
+
     return x_send(connection, &request, sizeof request);
 }

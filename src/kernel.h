@@ -54,34 +54,42 @@ enum { AF_UNIX = 1, SOCK_STREAM = 1, SOCK_CLOEXEC = O_CLOEXEC };
 static inline long system_call0(long number)
 {
     long result;
+
     __asm__ volatile("syscall" : "=a"(result) : "a"(number) : "rcx", "r11", "memory");
+
     return result;
 }
 
 static inline long system_call1(long number, long first)
 {
     long result;
+
     __asm__ volatile("syscall" : "=a"(result) : "a"(number), "D"(first) : "rcx", "r11", "memory");
+
     return result;
 }
 
 static inline long system_call2(long number, long first, long second)
 {
     long result;
+
     __asm__ volatile("syscall"
                      : "=a"(result)
                      : "a"(number), "D"(first), "S"(second)
                      : "rcx", "r11", "memory");
+
     return result;
 }
 
 static inline long system_call3(long number, long first, long second, long third)
 {
     long result;
+
     __asm__ volatile("syscall"
                      : "=a"(result)
                      : "a"(number), "D"(first), "S"(second), "d"(third)
                      : "rcx", "r11", "memory");
+
     return result;
 }
 
@@ -89,10 +97,12 @@ static inline long system_call4(long number, long first, long second, long third
 {
     register long fourth_register __asm__("r10") = fourth;
     long result;
+
     __asm__ volatile("syscall"
                      : "=a"(result)
                      : "a"(number), "D"(first), "S"(second), "d"(third), "r"(fourth_register)
                      : "rcx", "r11", "memory");
+
     return result;
 }
 
@@ -262,13 +272,16 @@ static inline void copy_bytes(void *destination, const void *source, size_t leng
 void *memcpy(void *restrict destination, const void *restrict source, size_t length)
 {
     copy_bytes(destination, source, length);
+
     return destination;
 }
 
 void *memset(void *destination, int value, size_t length)
 {
     void *cursor = destination;
+
     __asm__ volatile("rep stosb" : "+D"(cursor), "+c"(length) : "a"(value) : "memory");
+
     return destination;
 }
 
