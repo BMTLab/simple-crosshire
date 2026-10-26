@@ -96,7 +96,8 @@ The cross flashes in the screen centre meanwhile.
 
 ## Measurements
 
-On 2026-10-17, i7-12700H, Kubuntu 26.04 with KDE Plasma on Wayland, XWayland 24.1.
+On 2026-10-17, on a laptop with a hybrid Intel CPU,
+under Kubuntu 26.04 with KDE Plasma on Wayland, XWayland 24.1.
 One start means `crosshair -f` from exec until its window is mapped
 (the PID file names it), then SIGTERM and exit,
 counted by `perf stat` at nice -20 on one P-core,
@@ -128,7 +129,7 @@ How the build was chosen (each step against the one before, same method):
 | BOLT on top of either | fewer cycles, but a new 2 MB-aligned segment and 26 % more page faults: not used |
 | ext-TSP block placement in the compiler | no change: not used |
 
-What it costs a game: a full-screen OpenGL window under Proton on the RTX 3050,
+What it costs a game: a full-screen OpenGL window under Proton on the laptop's NVIDIA GPU,
 started through the Killing Floor launcher with and without the crosshair,
 six pairs unpaced and six at 60 FPS, showed no certain change
 in frame time (2.06 ms unpaced, 16.5 ms paced),
