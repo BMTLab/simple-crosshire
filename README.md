@@ -20,13 +20,13 @@ Without `-f` the command toggles:
 it starts a crosshair in the background, or stops the one that runs.
 Bound to a key in the desktop's shortcuts, it shows and hides the cross in a game.
 
-| Option | Default | Meaning |
-|---|---|---|
-| `-f`, `--foreground` | off | stay attached; Ctrl+C, SIGTERM or the parent's exit stops it |
-| `-s`, `--size SIZE` | 9 | side of the cross in pixels, 1 to 512 |
-| `-t`, `--thickness N` | 3 | width of both bars in pixels, at most the size |
-| `-c`, `--color RRGGBB` | `ff0000` | colour, with or without a leading `#` |
-| `-h`, `--help` | | the usage |
+| Option                 | Default  | Meaning                                                      |
+| ---------------------- | -------- | ------------------------------------------------------------ |
+| `-f`, `--foreground`   | off      | stay attached; Ctrl+C, SIGTERM or the parent's exit stops it |
+| `-s`, `--size SIZE`    | 9        | side of the cross in pixels, 1 to 512                        |
+| `-t`, `--thickness N`  | 3        | width of both bars in pixels, at most the size               |
+| `-c`, `--color RRGGBB` | `ff0000` | colour, with or without a leading `#`                        |
+| `-h`, `--help`         |          | the usage                                                    |
 
 ### With a game
 
@@ -104,30 +104,30 @@ counted by `perf stat` at nice -20 on one P-core,
 1000 rounds with every build in a fresh random order each round.
 Every difference below is beyond the spread of two copies of the same binary.
 
-| Per start | 1.2.0, Python and Qt | 2.0.0, Xlib (shared) | 2.0.0, Xlib (static) | 3.0.0 |
-|---|---|---|---|---|
-| CPU time | 53-58 ms | 0.896 ms | 0.559 ms | **0.315 ms** |
-| Instructions in the program | | 556 654 | 605 997 | **14 797** |
-| Page faults | | 143.4 | 54.2 | **3.7** |
-| Exec to mapped window | | 1.434 ms | 1.141 ms | **0.872 ms** |
-| Memory (RSS) | 100-145 MB | 3.0 MB | | **52 kB** |
-| Threads | 3-4 | 1 | | 1 |
-| Wakeups in 30 s idle | 13-90 | 0 | | 0 |
+| Per start                   | 1.2.0, Python and Qt | 2.0.0, Xlib (shared) | 2.0.0, Xlib (static) | 3.0.0        |
+| --------------------------- | -------------------- | -------------------- | -------------------- | ------------ |
+| CPU time                    | 53-58 ms             | 0.896 ms             | 0.559 ms             | **0.315 ms** |
+| Instructions in the program |                      | 556 654              | 605 997              | **14 797**   |
+| Page faults                 |                      | 143.4                | 54.2                 | **3.7**      |
+| Exec to mapped window       |                      | 1.434 ms             | 1.141 ms             | **0.872 ms** |
+| Memory (RSS)                | 100-145 MB           | 3.0 MB               |                      | **52 kB**    |
+| Threads                     | 3-4                  | 1                    |                      | 1            |
+| Wakeups in 30 s idle        | 13-90                | 0                    |                      | 0            |
 
 The Python CPU time and every memory figure come from /proc instead of perf.
 The Python version also sat 36 px off centre under the Wayland platform plugin.
 
 How the build was chosen (each step against the one before, same method):
 
-| Step | Effect |
-|---|---|
-| clang 24 instead of GCC 16, both -O2 | 19 % fewer instructions, 12 % fewer cycles |
-| -O3 instead of -O2 | a tie; -Os and -Oz lost |
-| one segment (`--no-rosegment`, no writable data) | 20 % fewer page faults, 2-3.5 % fewer cycles |
-| PGO | 17 % fewer cycles |
-| context-sensitive PGO on top | 8.5 % fewer instructions |
-| BOLT on top of either | fewer cycles, but a new 2 MB-aligned segment and 26 % more page faults: not used |
-| ext-TSP block placement in the compiler | no change: not used |
+| Step                                             | Effect                                                                           |
+| ------------------------------------------------ | -------------------------------------------------------------------------------- |
+| clang 24 instead of GCC 16, both -O2             | 19 % fewer instructions, 12 % fewer cycles                                       |
+| -O3 instead of -O2                               | a tie; -Os and -Oz lost                                                          |
+| one segment (`--no-rosegment`, no writable data) | 20 % fewer page faults, 2-3.5 % fewer cycles                                     |
+| PGO                                              | 17 % fewer cycles                                                                |
+| context-sensitive PGO on top                     | 8.5 % fewer instructions                                                         |
+| BOLT on top of either                            | fewer cycles, but a new 2 MB-aligned segment and 26 % more page faults: not used |
+| ext-TSP block placement in the compiler          | no change: not used                                                              |
 
 What it costs a game: a full-screen OpenGL window under Proton on the laptop's NVIDIA GPU,
 started through the Killing Floor launcher with and without the crosshair,
